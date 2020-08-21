@@ -4,7 +4,7 @@ library(dplyr)
 
 #### Create/Open Data ####
 algo <- c("kknn","rf", "LogitBoost", "nnet", "svmRadial")
-selected.models <- c("RRF", "ranger", #"ORFridge", # Random Forest
+algo <- c("RRF", "ranger", #"ORFridge", # Random Forest 
                      "LogitBoost","vglmContRatio", "vglmCumulative", # Logistic Regression
                      "svmRadialCost", "svmRadialSigma", "svmRadial", #SVM
                      "pcaNNet", "avNNet", "rbfDDA",
@@ -23,13 +23,12 @@ levels(df$vegetation.type) <- gsub("Subtropical riverine semideciduous forest" ,
 levels(df$vegetation.type) <- gsub("Tropical riverine semideciduous forest"    ,"Riverine",       levels(df$vegetation.type))
 head(df)
 
-
 classification <- function(df){
   nr <- createDataPartition(df$vegetation.type, p=0.9, list=FALSE)
   train <- df[nr,]
   test <- df[-nr,]
   #### Generatind Methods ####
-  multiclass <- function(train, test, algo){
+  multiclass <- function(train, test, algo, th){
     t <- trainControl(method = "repeatedcv", number = 10, index = createFolds(train$vegetation.type, 10),
                       repeats = 10, savePredictions = 'final', classProbs = TRUE, summaryFunction = multiClassSummary,
                       allowParallel = F, sampling = "up", returnResamp = "final")
@@ -44,11 +43,11 @@ classification <- function(df){
     auc_svm  <- ensemble$svmRadial$results$AUC[ensemble$svmRadial$results$sigma == ensemble$svmRadial$bestTune[1,1] &
                                                  ensemble$svmRadial$results$C == ensemble$svmRadial$bestTune[1,2] ]
     
-    if(auc_knn  < 0.6){ auc_knn  <- 0}
-    if(auc_rf   < 0.6){ auc_rf   <- 0}
-    if(auc_log  < 0.6){ auc_log  <- 0}
-    if(auc_nnet < 0.6){ auc_nnet <- 0}
-    if(auc_svm  < 0.6){ auc_svm  <- 0}
+    if(auc_knn  < th){ auc_knn  <- 0}
+    if(auc_rf   < th){ auc_rf   <- 0}
+    if(auc_log  < th){ auc_log  <- 0}
+    if(auc_nnet < th){ auc_nnet <- 0}
+    if(auc_svm  < th){ auc_svm  <- 0}
     auc_sum <- auc_knn + auc_rf + auc_log + auc_nnet + auc_svm 
     
     Restinga_wmean <- (model_preds$kknn$Restinga*auc_knn + model_preds$svm$Restinga*auc_svm +
