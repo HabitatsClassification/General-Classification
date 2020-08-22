@@ -1,6 +1,7 @@
 library(caretEnsemble)
 library(caret)
 library(dplyr)
+library(here)
 
 #### Create/Open Data ####
 algo <- c("kknn","rf", "LogitBoost", "nnet", "svmRadial")
@@ -9,7 +10,7 @@ algo <- c("RRF", "ranger", #"ORFridge", # Random Forest
                      "svmRadialCost", "svmRadialSigma", "svmRadial", #SVM
                      "pcaNNet", "avNNet", "rbfDDA",
                      "kknn") # NeuralNetwork
-df <- read.csv("NTT_xgboost.csv")
+df <- read.csv(here("NTT_xgboost.csv"))
 df <- df[,-1]
 levels(df$vegetation.type) <- gsub("Coastal white-sand woodland"               ,"Restinga",       levels(df$vegetation.type))
 levels(df$vegetation.type) <- gsub("Evergreen cloud dwarf-forest"              ,"Rainforest",     levels(df$vegetation.type))
@@ -28,11 +29,26 @@ classification <- function(df){
   train <- df[nr,]
   test <- df[-nr,]
   #### Generatind Methods ####
-  multiclass <- function(train, test, algo, th){
-    t <- trainControl(method = "repeatedcv", number = 10, index = createFolds(train$vegetation.type, 10),
-                      repeats = 10, savePredictions = 'final', classProbs = TRUE, summaryFunction = multiClassSummary,
-                      allowParallel = F, sampling = "up", returnResamp = "final")
-    ensemble <- caretList(vegetation.type ~ ., data=train, trControl=t, methodList=algo, continue_on_fail=T)
+  multiclass <- function(train, test, algo, th=0.6){
+    t <- trainControl(
+        method = "repeatedcv", 
+        number = 10, 
+        index = createFolds(train$vegetation.type, 10),
+        repeats = 10, 
+        savePredictions = 'final', 
+        classProbs = TRUE, 
+        summaryFunction = multiClassSummary,
+        allowParallel = F, 
+        sampling = "up", 
+        returnResamp = "final"
+      )
+    ensemble <- caretList(
+        vegetation.type ~ ., 
+        data=train, 
+        trControl=t, 
+        methodList=algo, 
+        continue_on_fail=T
+      )
     model_preds <- lapply(ensemble, predict, newdata=test, type="prob")
     
     auc_knn  <- ensemble$kknn$results$AUC[ensemble$kknn$results$kmax == ensemble$kknn$bestTune$kmax]
