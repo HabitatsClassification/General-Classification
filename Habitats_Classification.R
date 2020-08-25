@@ -6,11 +6,38 @@ library(pROC)
 
 #### Create/Open Data ####
 algo <- c("kknn","rf", "LogitBoost", "nnet", "svmRadial")
-algo <- c("RRF", "ranger", #"ORFridge", # Random Forest 
-                     "LogitBoost","vglmContRatio", "vglmCumulative", # Logistic Regression
-                     "svmRadialCost", "svmRadialSigma", "svmRadial", #SVM
-                     "pcaNNet", "avNNet", "rbfDDA",
-                     "kknn") # NeuralNetwork
+#algo <- c("RRF", "ranger", #"ORFridge", # Random Forest 
+#                     "LogitBoost","vglmContRatio", "vglmCumulative", # Logistic Regression
+#                     "svmRadialCost", "svmRadialSigma", "svmRadial", #SVM
+#                     "pcaNNet", "avNNet", "rbfDDA",
+#                     "kknn") # NeuralNetwork
+#
+#tag <- read.csv("tag_data.csv", row.names = 1)
+#tag <- as.matrix(tag)
+#algo <- tag[tag[,"Classification"] == 1 & 
+#              tag[,"Two.Class.Only"] == 0 & 
+#              tag[,"Categorical.Predictors.Only"] == 0 & 
+#              tag[,"Binary.Predictors.Only"] == 0 &
+#              tag[,"Random.Forest"] | 
+#              tag[,"Logistic.Regression"] | 
+#              tag[,"Neural.Network"] | 
+#              tag[,"Support.Vector.Machines"],]
+#algo <- rownames(algo)
+#algo <- gsub("(?<=\\()[^()]*(?=\\))(*SKIP)(*F)|.", "", algo, perl=T)
+#algo <- algo[-51]
+#algo <- algo[-c(6, 8, 10, 22, 27, 28)]
+#
+##elmNN, gpls, logicFS, FCNN4R, mxnet
+##   elm[6],gpls[8],logicBag[10]  ,mlpSGD[22], mxnet[27], mxnetAdam[28]
+#th <- 0.6
+#result <- multiclass(train, test, algo[1:14])
+#result2 <- multiclass(train, test, algo[15:28])
+#result3 <- multiclass(train, test, algo[29:42])
+#result4 <- multiclass(train, test, algo[43:56])
+#
+#
+
+
 df <- read.csv(here("NTT_xgboost.csv"))
 df <- df[,-1]
 levels(df$vegetation.type) <- gsub("Coastal white-sand woodland"               ,"Restinga",       levels(df$vegetation.type))
@@ -46,7 +73,7 @@ classification <- function(df, th){
         selectionFunction = "best"
       )
     ensemble <- caretList(
-        vegetation.type ~ ., # transformar "vegetation.type" em algo mais genérico
+        reformulate(termlabels = colnames(train)[-1], response=colnames(train)[1]),
         data=train, 
         trControl=t, 
         methodList=algo, 
@@ -77,7 +104,7 @@ classification <- function(df, th){
       result <- cbind(result,df2)
     }
     colnames(result) <- c(colnames(test), habitats)
-    final_prediction <- apply(result[,-(1:4)],1,function(x) names(which.max(x)))
+    final_prediction <- apply(result[,-(1:ncol(df))],1,function(x) names(which.max(x)))
     habitat_probs <- NA
     for(i in 1:nrow(result)){
       habitat_probs[i] <- result[i,colnames(result) == result[,1][i]]
@@ -86,25 +113,15 @@ classification <- function(df, th){
     return(result)
   }
   one_vs_all <- function(train, test, algo){
-    Rainforest <- train
-    Rainforest$vegetation.type <- ifelse(Rainforest$vegetation.type != "Rainforest", "Other", "Rainforest") %>% 
-      factor(levels = c("Rainforest", "Other"))
-    High.Elevation <- train
-    High.Elevation$vegetation.type <- ifelse(High.Elevation$vegetation.type != "High.Elevation", "Other", "High.Elevation") %>% 
-      factor(levels = c("High.Elevation", "Other"))
-    Semideciduous <- train
-    Semideciduous$vegetation.type <- ifelse(Semideciduous$vegetation.type != "Semideciduous", "Other", "Semideciduous") %>% 
-      factor(levels = c("Semideciduous", "Other"))
-    Restinga <- train
-    Restinga$vegetation.type <- ifelse(Restinga$vegetation.type != "Restinga", "Other", "Restinga") %>% 
-      factor(levels = c("Restinga", "Other"))
-    Riverine <- train
-    Riverine$vegetation.type <- ifelse(Riverine$vegetation.type != "Riverine", "Other", "Riverine") %>% 
-      factor(levels = c("Riverine", "Other"))
-    Rocky <- train
-    Rocky$vegetation.type <- ifelse(Rocky$vegetation.type != "Rocky", "Other", "Rocky") %>% 
-      factor(levels = c("Rocky", "Other"))
     
+    for (i in 1:length(habitats)){
+     train2 <- train
+     train2[,1] <- ifelse(train2[,1] != habitats[i], "Other", habitats[i]) %>% 
+     factor(levels = c(habitats[i], "Other"))
+     assign(paste0(habitats[i]),train2)
+     print(i)
+    }
+
     habitat_classification <- function(df, algo, th=0.6){
       nr <- createDataPartition(df$vegetation.type, p=0.9, list=FALSE)
       train2 <- df[nr,]
@@ -119,7 +136,7 @@ classification <- function(df, th){
                         summaryFunction = twoClassSummary,
                         allowParallel = F, 
                         sampling = "down")
-      ensemble <-  caretList(vegetation.type ~ ., 
+      ensemble <-  caretList(reformulate(termlabels = colnames(train)[-1], response=colnames(train)[1]), 
                              data=train2, 
                              trControl=t, 
                              methodList=algo, 
@@ -137,18 +154,8 @@ classification <- function(df, th){
     Semideciduous_result  <- habitat_classification(Semideciduous  , algo)
     High.Elevation_result <- habitat_classification(High.Elevation , algo)
     
-    ensembles <- c("Rainforest_result",
-                   "Riverine_result",
-                   "Rocky_result",
-                   "Restinga_result",
-                   "Semideciduous_result",
-                   "High.Elevation_result")
-    ensembles2 <- c("Rainforest",
-                    "Riverine",
-                    "Rocky",
-                    "Restinga",
-                    "Semideciduous",
-                    "High.Elevation")
+    ensembles <- paste0(habitats,"_result")
+
     result <- test
     
     for (j in 1:length(ensembles)){
@@ -169,15 +176,14 @@ classification <- function(df, th){
     
       sum_roc <- sum(values_roc)
       model_preds <- lapply(en, predict, newdata=test, type="prob")
-      df2 <- sapply(model_preds,'[',ensembles2[j])
+      df2 <- sapply(model_preds,'[',habitats[j])
       df2 <- Map('*',df2,values_roc)
       df2 <- as.data.frame(df2)
       df2 <- rowSums(df2)/sum_roc
       result <- cbind(result,df2)
     }
     
-    colnames(result) <- c(colnames(test), ensembles2)
-    
+    colnames(result) <- c(colnames(test), habitats)
     
     final_prediction <- colnames(result[,-(1:4)])[apply(result[,-(1:4)],1,which.max)]
     habitat_probs <- NA
