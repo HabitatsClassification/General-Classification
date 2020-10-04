@@ -59,8 +59,8 @@ table(train$vegetation.type)
 table(test$vegetation.type)
 
 habitats_training <- function(n){
-  final <- list()
-  final_aucs <- list()
+  models <- NA
+  final_aucs <- NA
   for (j in 1:n){
     ensemble <- caretList(reformulate(termlabels = colnames(train)[-1], response=colnames(train)[1]),
                           data=train, 
@@ -81,8 +81,8 @@ habitats_training <- function(n){
                                                                                 usekernel = TRUE,
                                                                                 adjust = seq(0.65, 0.75, 0.01))),
                             nnet = caretModelSpec(method = "nnet", 
-                                                  tuneGrid = expand.grid(size = seq(10, 30, 1),
-                                                                         decay = seq(0.65,0.8,0.05))),
+                                                  tuneGrid = expand.grid(size = seq(10, 15, 1), # 10, 30
+                                                                         decay = seq(0.6,0.8,0.1))), #0.65, 0.8, 0.05
                             mlp = caretModelSpec(method = "mlp", 
                                                  tuneGrid = expand.grid(size = seq(10, 20, 1)))),
                           continue_on_fail=T,
@@ -93,20 +93,15 @@ habitats_training <- function(n){
     for (i in 1:length(names(ensemble))){
       preds_auc[i] <- as.numeric(x[[i]]$auc)
     }
-    final[[j]] <- ensemble[preds_auc > 0.6]
-    final_aucs[[j]] <- preds_auc
+    models[j] <- ensemble[which.max(preds_auc)]
+    final_aucs[j] <- preds_auc[which.max(preds_auc)]
   } 
-  final_aucs <- cbind(names(ensemble), final_aucs)
-  return(list(final,final_aucs))
+  best_model <- models[which.max(final_aucs)]
+  return(list(Models = models, AUCs = final_aucs, Best_model = best_model))
 }
   
   
 test_1 <- habitats_training(1)
 test_2 <- habitats_training(2)
-
-  
-  
-  
-  
-  
-  
+test_3 <- habitats_training(3)
+test_4 <- habitats_training(4)
