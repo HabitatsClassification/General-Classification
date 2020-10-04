@@ -81,8 +81,8 @@ habitats_training <- function(n){
                                                                                 usekernel = TRUE,
                                                                                 adjust = seq(0.65, 0.75, 0.01))),
                             nnet = caretModelSpec(method = "nnet", 
-                                                  tuneGrid = expand.grid(size = seq(10, 15, 1), # 10, 30
-                                                                         decay = seq(0.6,0.8,0.1))), #0.65, 0.8, 0.05
+                                                  tuneGrid = expand.grid(size = seq(10, 30, 1), # or 10, 15 for tests
+                                                                         decay = seq(0.65,0.8,0.05))), # or 0.6, 0.8, 0.1 for tests
                             mlp = caretModelSpec(method = "mlp", 
                                                  tuneGrid = expand.grid(size = seq(10, 20, 1)))),
                           continue_on_fail=T,
