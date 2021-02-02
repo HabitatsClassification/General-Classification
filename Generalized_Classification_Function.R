@@ -168,7 +168,7 @@ First_step <- function(df, n) {
         
         colnames(result) <- c(colnames(test), habitats)
         
-        final_prediction <- colnames(result[, -(1:4)])[apply(result[, -(1:4)], 1, which.max)]
+        final_prediction <- colnames(result[, -(1:ncol(test))])[apply(result[, -(1:ncol(test))], 1, which.max)]
         habitat_probs <- NA
         for (i in 1:nrow(result)) {
           habitat_probs[i] <- result[i, colnames(result) == result[, 1][i]]
@@ -243,7 +243,7 @@ Second_step <- function(Selected_Framework, algo_2nd_step, n) {
           metric = "AUC"
         )
         model_preds <- lapply(ensemble, predict, newdata = test, type = "raw")
-        x <- lapply(lapply(model_preds, as.numeric), multiclass.roc, response = as.numeric(test$vegetation.type))
+        x <- lapply(lapply(model_preds, as.numeric), multiclass.roc, response = as.numeric(as.factor(test[,1])))
         preds_auc <- NA
         for (i in 1:length(names(ensemble))) {
           preds_auc[i] <- as.numeric(x[[i]]$auc)
@@ -314,7 +314,7 @@ Second_step <- function(Selected_Framework, algo_2nd_step, n) {
           }
           colnames(df2) <- c(colnames(test), habitats)
           final_prediction <- as.factor(colnames(df2[, -(1:ncol(test))])[apply(df2[, -(1:ncol(test))], 1, which.max)])
-          x <- pROC::multiclass.roc(response = as.numeric(test$vegetation.type), predictor = as.numeric(final_prediction))
+          x <- pROC::multiclass.roc(response = as.numeric(as.factor(test[,1])), predictor = as.numeric(final_prediction))
           result[i, 1] <- algo_2nd_step[i]
           result[i, 2] <- as.numeric(x$auc)
         }
@@ -535,7 +535,7 @@ Third_step <- function(df, Selected_Framework, algo, n_clust, n_clust2, n) {
         }
         colnames(result) <- c(colnames(test), habitats)
         final_prediction <- data.frame(final_prediction = as.factor(apply(result[, -(1:ncol(df))], 1, function(x) names(which.max(x)))))
-        x <- multiclass.roc(response = as.numeric(final_prediction[, 1]), predictor = as.numeric(test[, 1]))
+        x <- multiclass.roc(response = as.numeric(final_prediction[, 1]), predictor = as.numeric(as.factor(test[, 1])))
         x <- as.numeric(x$auc)
         return(x)
       }
@@ -618,13 +618,13 @@ Third_step <- function(df, Selected_Framework, algo, n_clust, n_clust2, n) {
         
         colnames(result) <- c(colnames(test), habitats)
         
-        final_prediction <- as.factor(colnames(result[, -(1:4)])[apply(result[, -(1:4)], 1, which.max)])
+        final_prediction <- as.factor(colnames(result[, -(1:ncol(test))])[apply(result[, -(1:ncol(test))], 1, which.max)])
         habitat_probs <- NA
         for (i in 1:nrow(result)) {
           habitat_probs[i] <- result[i, colnames(result) == result[, 1][i]]
         }
         result <- cbind(result, final_prediction, habitat_probs)
-        oa.roc <- multiclass.roc(as.numeric(test[, 1]), as.numeric(final_prediction))
+        oa.roc <- multiclass.roc(as.numeric(as.factor(test[, 1])), as.numeric(final_prediction))
         x <- as.numeric(oa.roc$auc)
         return(x)
       }
@@ -811,7 +811,7 @@ habitats_classification <- function(df) {
   print(paste0("Making predictions..."))
   best_model <- ensemble[[which.max(values_auc)]]
   model_preds <- predict(best_model, newdata = test, type = "prob")
-  pred_auc <- multiclass.roc(test$vegetation.type, model_preds)
+  pred_auc <- multiclass.roc(as.numeric(as.factor(test[,1])), model_preds)
   
   print(paste0("Done!"))
   return(list(
