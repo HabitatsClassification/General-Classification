@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+
+
+
+<title>About</title>
+
+<script src="site_libs/jquery-1.11.3/jquery.min.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link href="site_libs/bootstrap-3.3.5/css/spacelab.min.css" rel="stylesheet" />
+<script src="site_libs/bootstrap-3.3.5/js/bootstrap.min.js"></script>
+<script src="site_libs/bootstrap-3.3.5/shim/html5shiv.min.js"></script>
+<script src="site_libs/bootstrap-3.3.5/shim/respond.min.js"></script>
+<script src="site_libs/navigation-1.1/tabsets.js"></script>
+<script src="site_libs/navigation-1.1/codefolding.js"></script>
+<link href="site_libs/highlightjs-9.12.0/textmate.css" rel="stylesheet" />
+<script src="site_libs/highlightjs-9.12.0/highlight.js"></script>
+
+<style type="text/css">code{white-space: pre;}</style>
+<style type="text/css">
+  pre:not([class]) {
+    background-color: white;
+  }
+</style>
+<script type="text/javascript">
+if (window.hljs) {
+  hljs.configure({languages: []});
+  hljs.initHighlightingOnLoad();
+  if (document.readyState && document.readyState === "complete") {
+    window.setTimeout(function() { hljs.initHighlighting(); }, 0);
+  }
+}
+</script>
+
+
+
+<style type="text/css">
+h1 {
+  font-size: 34px;
+}
+h1.title {
+  font-size: 38px;
+}
+h2 {
+  font-size: 30px;
+}
+h3 {
+  font-size: 24px;
+}
+h4 {
+  font-size: 18px;
+}
+h5 {
+  font-size: 16px;
+}
+h6 {
+  font-size: 12px;
+}
+.table th:not([align]) {
+  text-align: left;
+}
+</style>
+
+<link rel="stylesheet" href="assets/css/styles.css" type="text/css" />
+
+
+
+<style type = "text/css">
+.main-container {
+  max-width: 940px;
+  margin-left: auto;
+  margin-right: auto;
+}
+code {
+  color: inherit;
+  background-color: rgba(0, 0, 0, 0.04);
+}
+img {
+  max-width:100%;
+}
+.tabbed-pane {
+  padding-top: 12px;
+}
+.html-widget {
+  margin-bottom: 20px;
+}
+button.code-folding-btn:focus {
+  outline: none;
+}
+summary {
+  display: list-item;
+}
+</style>
+
+
+<style type="text/css">
+/* padding for bootstrap navbar */
+body {
+  padding-top: 52px;
+  padding-bottom: 40px;
+}
+/* offset scroll position for anchor links (for fixed navbar)  */
+.section h1 {
+  padding-top: 57px;
+  margin-top: -57px;
+}
+.section h2 {
+  padding-top: 57px;
+  margin-top: -57px;
+}
+.section h3 {
+  padding-top: 57px;
+  margin-top: -57px;
+}
+.section h4 {
+  padding-top: 57px;
+  margin-top: -57px;
+}
+.section h5 {
+  padding-top: 57px;
+  margin-top: -57px;
+}
+.section h6 {
+  padding-top: 57px;
+  margin-top: -57px;
+}
+.dropdown-submenu {
+  position: relative;
+}
+.dropdown-submenu>.dropdown-menu {
+  top: 0;
+  left: 100%;
+  margin-top: -6px;
+  margin-left: -1px;
+  border-radius: 0 6px 6px 6px;
+}
+.dropdown-submenu:hover>.dropdown-menu {
+  display: block;
+}
+.dropdown-submenu>a:after {
+  display: block;
+  content: " ";
+  float: right;
+  width: 0;
+  height: 0;
+  border-color: transparent;
+  border-style: solid;
+  border-width: 5px 0 5px 5px;
+  border-left-color: #cccccc;
+  margin-top: 5px;
+  margin-right: -10px;
+}
+.dropdown-submenu:hover>a:after {
+  border-left-color: #ffffff;
+}
+.dropdown-submenu.pull-left {
+  float: none;
+}
+.dropdown-submenu.pull-left>.dropdown-menu {
+  left: -100%;
+  margin-left: 10px;
+  border-radius: 6px 0 6px 6px;
+}
+</style>
+
+<script>
+// manage active state of menu based on current page
+$(document).ready(function () {
+  // active menu anchor
+  href = window.location.pathname
+  href = href.substr(href.lastIndexOf('/') + 1)
+  if (href === "")
+    href = "index.html";
+  var menuAnchor = $('a[href="' + href + '"]');
+
+  // mark it active
+  menuAnchor.parent().addClass('active');
+
+  // if it's got a parent navbar menu mark it active as well
+  menuAnchor.closest('li.dropdown').addClass('active');
+});
+</script>
+
+<!-- tabsets -->
+
+<style type="text/css">
+.tabset-dropdown > .nav-tabs {
+  display: inline-table;
+  max-height: 500px;
+  min-height: 44px;
+  overflow-y: auto;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.tabset-dropdown > .nav-tabs > li.active:before {
+  content: "";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li.active:before {
+  content: "&#xe258;";
+  border: none;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open:before {
+  content: "";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs > li.active {
+  display: block;
+}
+
+.tabset-dropdown > .nav-tabs > li > a,
+.tabset-dropdown > .nav-tabs > li > a:focus,
+.tabset-dropdown > .nav-tabs > li > a:hover {
+  border: none;
+  display: inline-block;
+  border-radius: 4px;
+  background-color: transparent;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li {
+  display: block;
+  float: none;
+}
+
+.tabset-dropdown > .nav-tabs > li {
+  display: none;
+}
+</style>
+
+<!-- code folding -->
+<style type="text/css">
+.code-folding-btn { margin-bottom: 4px; }
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+<div class="container-fluid main-container">
+
+
+
+
+<div class="navbar navbar-default  navbar-fixed-top" role="navigation">
+  <div class="container">
+    <div class="navbar-header">
+      <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar">
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+      <a class="navbar-brand" href="index.html"></a>
+    </div>
+    <div id="navbar" class="navbar-collapse collapse">
+      <ul class="nav navbar-nav">
+        <li>
+  <a href="index.html">A Multi-class Classification Framework to Confidentially Segregate Habitats</a>
+</li>
+<li>
+  <a href="suplementary.html">Suplementary</a>
+</li>
+<li>
+  <a href="about.html">About</a>
+</li>
+      </ul>
+      <ul class="nav navbar-nav navbar-right">
+        
+      </ul>
+    </div><!--/.nav-collapse -->
+  </div><!--/.container -->
+</div><!--/.navbar -->
+
+<div class="fluid-row" id="header">
+
+<div class="btn-group pull-right">
+<button type="button" class="btn btn-default btn-xs dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"><span>Code</span> <span class="caret"></span></button>
+<ul class="dropdown-menu" style="min-width: 50px;">
+<li><a id="rmd-show-all-code" href="#">Show All Code</a></li>
+<li><a id="rmd-hide-all-code" href="#">Hide All Code</a></li>
+</ul>
+</div>
+
+
+
+
+</div>
+
+
+<div id="authors" class="section level2">
+<h2>Authors</h2>
+<div class="container">
+<div class="heading-title text-center">
+<h3 class="text-uppercase"></h3>
+<p class="p-top-30 half-txt"></p>
+<br>
+<br/>
+<br/>
+<div class="row">
+<div class="col-md-3 col-sm-3">
+<div class="team-member">
+<div class="team-img">
+<img src="assets/authors/luiz.jpg" alt="team member" class="img-responsive" style="margin:auto;top: 0; left:0; right:0; bottom:0;display: block; width:80%"/>
+</div>
+<div class="team-hover">
+<div class="desk">
+<h4>Universidade Federal do Rio Grande do Sul</h4>
+<p>UFRGS</p>
+</div>
+<div class="s-link">
+<a href="http://www.ufrgs.br/">Departamento de Botânica</a>
+</div>
+</div>
+</div>
+<div class="team-title">
+<h5>Luíz Fernando Esser</h5>
+<p>luizesser@gmail.com</p>
+</div>
+</div>
+<div class="col-md-3 col-sm-3">
+<div class="team-member">
+<div class="team-img">
+<img src="assets/authors/reginaldo.jpg" alt="team member" class="img-responsive" style="margin:auto;top: 0; left:0; right:0; bottom:0;display: block; width:69%"/>
+</div>
+<div class="team-hover">
+<div class="desk">
+<h4>Universidade Tecnológica Federal do Paraná</h4>
+<p>UTFPR Campo Mourão</p>
+</div>
+<div class="s-link">
+<a href="http://dacom.cm.utfpr.edu.br/portal">Departamento de Computação</a>
+</div>
+</div>
+</div>
+<div class="team-title">
+<h5>Reginaldo Ré</h5>
+<p>reginaldo@utfpr.edu.br</p>
+</div>
+</div>
+<div class="col-md-3 col-sm-3">
+<div class="team-member">
+<div class="team-img">
+<img src="assets/authors/vincent.webp" alt="team member" class="img-responsive" style="margin:auto;top: 0; left:0; right:0; bottom:0;display: block; width:76%"/>
+</div>
+<div class="team-hover">
+<div class="desk">
+<h4>Université de Montpellier, Montpellier, France</h4>
+<p>Université de Montpellier</p>
+</div>
+<div class="s-link">
+<a href="https://www.umontpellier.fr">UM</a>
+</div>
+</div>
+</div>
+<div class="team-title">
+<h5>Vincent Montade</h5>
+<p>vincent.montade@gmail.com</p>
+</div>
+</div>
+<div class="col-md-3 col-sm-3">
+<div class="team-member">
+<div class="team-img">
+<img src="assets/authors/danilo.png" alt="team member" class="img-responsive" style="margin:auto;top: 0; left:0; right:0; bottom:0;display: block; width:81%"/>
+</div>
+<div class="team-hover">
+<div class="desk">
+<h4>Universidade Federal de Minas Gerais, Belo Horizonte, Brazil</h4>
+<p>Universidade Federal de Minas Gerais</p>
+</div>
+<div class="s-link">
+<a href="https://ufmg.br/">UFMG</a>
+</div>
+</div>
+</div>
+<div class="team-title">
+<h5>Danilo Neves</h5>
+<p>vincent.montade@gmail.com</p>
+</div>
+</div>
+</div>
+</br>
+</div>
+</div>
+</div>
+<div id="authors-contributions" class="section level2">
+<h2>Authors Contributions</h2>
+<p>DN and VM conceived the idea and reviewed the final manuscript; LFE and RR designed methodology. LFE analyzed the data and led the writing. All authors gave final approval for publication.</p>
+</div>
+<div id="acknowledgements" class="section level2">
+<h2>Acknowledgements</h2>
+<p>This study was financed in part by the Coordenação de Aperfeiçoamento de Pessoal de Nível Superior - Brasil (CAPES) - Finance Code 001. LFE was supported by CAPES PhD scholarship.</p>
+</div>
+<div id="data-availability" class="section level2">
+<h2>Data Availability</h2>
+<p>NTT dataset is fully available at <a href="http://neotroptree.info" class="uri">http://neotroptree.info</a>. R script is available in Supplementary. Model generated for the Atlantic Rainforest is available by request.</p>
+</div>
+
+<!-- 
+<div style="position:absolute;top:2px;right:10px;z-index:10000"> 
+    <img src="assets/logo/cm.png" style="width:170px;margin-right:10px"/> 
+    <img src="assets/logo/utfpr.png" style="width:150px"/> 
+</div>
+--!>
+
+
+
+</div>
+
+<script>
+
+// add bootstrap table styles to pandoc tables
+function bootstrapStylePandocTables() {
+  $('tr.header').parent('thead').parent('table').addClass('table table-condensed');
+}
+$(document).ready(function () {
+  bootstrapStylePandocTables();
+});
+
+
+</script>
+
+<!-- tabsets -->
+
+<script>
+$(document).ready(function () {
+  window.buildTabsets("TOC");
+});
+
+$(document).ready(function () {
+  $('.tabset-dropdown > .nav-tabs > li').click(function () {
+    $(this).parent().toggleClass('nav-tabs-open')
+  });
+});
+</script>
+
+<!-- code folding -->
+<script>
+$(document).ready(function () {
+  window.initializeCodeFolding("hide" === "show");
+});
+</script>
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

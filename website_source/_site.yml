@@ -1,0 +1,20 @@
+name: "HabitatClassification"
+output_dir: "../docs"
+navbar:
+  left:
+    - text: "A Multi-class Classification Framework to Confidentially Segregate Habitats"
+      href: index.html
+    - text: "Suplementary"
+      href: suplementary.html
+    - text: "About"
+      href: about.html
+output:
+  html_document:
+    code_folding: hide
+    theme: spacelab
+    highlight: textmate
+    css: assets/css/styles.css
+    include:
+        after_body: assets/html/footer.html
+
+

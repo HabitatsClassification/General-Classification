@@ -1,18 +1,47 @@
 # General Classification Function:
 # Open necessary libraries:
-library(caretEnsemble)
-library(caret)
-library(dplyr)
-library(here)
-library(pROC)
-library(dplyr)
+load_lib <- function(){
+  # Package names
+  packages <- c(
+    "caretEnsemble", 
+    "caret", 
+    "dplyr", 
+    "here", 
+    "pROC", 
+    "magrittr", 
+    "nnet", 
+    "RSNNS",
+    "kernlab",
+    "deepnet",
+    "monmlp",
+    "party",
+    "e1071",
+    "Rborist",
+    "randomForest",
+    "RRF",
+    "wsrf",
+    "RWeka",
+    "caTools",
+    "MASS",
+    "VGAM",
+    "klaR",
+    "naivebayes",
+    "DT"
+  )
+  
+  # Install packages not yet installed
+  installed_packages <- packages %in% rownames(installed.packages())
+  if (any(installed_packages == FALSE)) {
+    install.packages(packages[!installed_packages])
+  }
+  # Packages loading
+  invisible(lapply(packages, library, character.only = TRUE))
+}
 
-# Open NeoTropTree dataframe:
-df <- read.csv(here("NTT_habitats_classification.csv"), stringsAsFactors = TRUE)
-df <- df[, -1]
-head(df)
-summary(df)
+# Loading libraries ####
+load_lib()
 
+# Configuring general parameters ####
 algo_2nd_step <- c( 
   # SVM
   "lssvmRadial", "svmLinear", "svmLinear2", "svmRadialWeights",
@@ -29,161 +58,171 @@ algo_2nd_step <- c(
   # Naive Bayes
   "nb", "naive_bayes"
 )
-
 n_clust <- 100
 n <- 100
+n <- 2
+NeoTropTree_filename <- here("./data/raw/NTT_habitats_classification.csv")
+df <- NULL
+
+
+# Load NeoTropTree database ####
+load_database <- function(){
+  df <<- read.csv(NeoTropTree_filename, stringsAsFactors = TRUE)
+  df <<- df[, -1]
+}
 
 # First Step: Framework Selection ####
-First_step <- function(df, n) {
+framework_selection <- function(df, n) {
   classification <- function(df) {
-      habitats <- levels(df[, 1])
-      nr <- createDataPartition(df[, 1], p = 0.9, list = FALSE)
-      train <- df[nr, ]
-      test <- df[-nr, ]
-      algo <- c("nb", "rf", "LogitBoost", "nnet", "svmRadial")
-      #### Generatind Methods ####
-      multiclass <- function(train, test, algo) {
+    habitats <- levels(df[, 1])
+    nr <- createDataPartition(df[, 1], p = 0.9, list = FALSE)
+    train <- df[nr, ]
+    test <- df[-nr, ]
+    algo <- c("nb", "rf", "LogitBoost", "nnet", "svmRadial")
+    
+    #### Generatind Methods ####
+    multiclass <- function(train, test, algo) {
+      t <- trainControl(
+        method = "repeatedcv",
+        number = 10,
+        index = createFolds(train[, 1], 10, returnTrain = T),
+        repeats = 10,
+        savePredictions = "final",
+        classProbs = TRUE,
+        summaryFunction = multiClassSummary,
+        allowParallel = F,
+        sampling = "up",
+        returnResamp = "final",
+        selectionFunction = "best"
+      )
+      ensemble <- caretList(
+        reformulate(termlabels = colnames(train)[-1], response = colnames(train)[1]),
+        data = train,
+        trControl = t,
+        methodList = algo,
+        continue_on_fail = T,
+        metric = "AUC"
+      )
+      model_preds <- lapply(ensemble, predict, newdata = test, type = "prob")
+      
+      values_auc <- NA
+      for (i in 1:length(algo)) {
+        v <- ensemble[[i]]$results$AUC[best(ensemble[[i]]$results, "AUC", maximize = T)]
+        if (v > 0.5) {
+          assign(paste0("auc_", algo[i]), v)
+          values_auc[i] <- v
+        } else {
+          assign(paste0("auc_", algo[i]), 0)
+          values_auc[i] <- 0
+        }
+      }
+      sum_auc <- sum(values_auc)
+      result <- test
+      for (i in 1:length(habitats)) {
+        df2 <- sapply(model_preds, "[", i)
+        df2 <- Map("*", df2, values_auc)
+        df2 <- as.data.frame(df2)
+        df2 <- rowSums(df2) / sum_auc
+        result <- cbind(result, df2)
+      }
+      colnames(result) <- c(colnames(test), habitats)
+      final_prediction <- apply(result[, -(1:ncol(df))], 1, function(x) names(which.max(x)))
+      habitat_probs <- NA
+      for (i in 1:nrow(result)) {
+        habitat_probs[i] <- result[i, colnames(result) == result[, 1][i]]
+      }
+      result <- cbind(result, final_prediction, habitat_probs)
+      
+      return(result)
+    }
+    one_vs_all <- function(train, test, algo) {
+      for (i in 1:length(habitats)) {
+        train2 <- train
+        train2[, 1] <- ifelse(train2[, 1] != habitats[i], "Other", habitats[i]) %>%
+          factor(levels = c(habitats[i], "Other"))
+        assign(paste0(habitats[i]), train2)
+        
+        print(paste0(habitats[i]))
+      }
+      
+      habitat_classification <- function(df_habitat, algo) {
+        u <- unique(df_habitat[, 1])
+        u <- u[u != "Other"]
         t <- trainControl(
           method = "repeatedcv",
           number = 10,
-          index = createFolds(train[, 1], 10, returnTrain = T),
+          index = createFolds(df_habitat[, 1], 10, returnTrain = T),
           repeats = 10,
           savePredictions = "final",
           classProbs = TRUE,
-          summaryFunction = multiClassSummary,
+          summaryFunction = twoClassSummary,
           allowParallel = F,
-          sampling = "up",
-          returnResamp = "final",
-          selectionFunction = "best"
+          sampling = "down"
         )
-        ensemble <- caretList(
-          reformulate(termlabels = colnames(train)[-1], response = colnames(train)[1]),
-          data = train,
-          trControl = t,
-          methodList = algo,
-          continue_on_fail = T,
-          metric = "AUC"
+        ensemble <- caretList(reformulate(termlabels = colnames(train)[-1], response = colnames(train)[1]),
+                              data = df_habitat,
+                              trControl = t,
+                              methodList = algo,
+                              continue_on_fail = T,
+                              metric = "ROC",
+                              verbose = T
         )
-        model_preds <- lapply(ensemble, predict, newdata = test, type = "prob")
+        assign(paste0(u, "_", algo[1]), ensemble)
+      }
+      
+      # Run Function:
+      for (i in 1:length(habitats)) {
+        assign(paste0(habitats[i], "_result"), habitat_classification(get(habitats[i]), algo))
+        print(paste0(habitats[i], " one-vs-all ended!"))
+      }
+      
+      ensembles <- paste0(habitats, "_result")
+      
+      result <- test
+      
+      for (j in 1:length(ensembles)) {
+        print(j)
+        en <- get(ensembles[j])
         
-        values_auc <- NA
+        values_roc <- NA
         for (i in 1:length(algo)) {
-          v <- ensemble[[i]]$results$AUC[best(ensemble[[i]]$results, "AUC", maximize = T)]
+          v <- en[[i]]$results$ROC[best(en[[i]]$results, "ROC", maximize = T)]
           if (v > 0.5) {
-            assign(paste0("auc_", algo[i]), v)
-            values_auc[i] <- v
+            assign(paste0("roc_", algo[i]), v)
+            values_roc[i] <- v
           } else {
-            assign(paste0("auc_", algo[i]), 0)
-            values_auc[i] <- 0
+            assign(paste0("roc_", algo[i]), 0)
+            values_roc[i] <- 0
           }
         }
-        sum_auc <- sum(values_auc)
-        result <- test
-        for (i in 1:length(habitats)) {
-          df2 <- sapply(model_preds, "[", i)
-          df2 <- Map("*", df2, values_auc)
-          df2 <- as.data.frame(df2)
-          df2 <- rowSums(df2) / sum_auc
-          result <- cbind(result, df2)
-        }
-        colnames(result) <- c(colnames(test), habitats)
-        final_prediction <- apply(result[, -(1:ncol(df))], 1, function(x) names(which.max(x)))
-        habitat_probs <- NA
-        for (i in 1:nrow(result)) {
-          habitat_probs[i] <- result[i, colnames(result) == result[, 1][i]]
-        }
-        result <- cbind(result, final_prediction, habitat_probs)
         
-        return(result)
+        sum_roc <- sum(values_roc)
+        model_preds <- lapply(en, predict, newdata = test, type = "prob")
+        df2 <- sapply(model_preds, "[", habitats[j])
+        df2 <- Map("*", df2, values_roc)
+        df2 <- as.data.frame(df2)
+        df2 <- rowSums(df2) / sum_roc
+        result <- cbind(result, df2)
       }
-      one_vs_all <- function(train, test, algo) {
-        for (i in 1:length(habitats)) {
-          train2 <- train
-          train2[, 1] <- ifelse(train2[, 1] != habitats[i], "Other", habitats[i]) %>%
-            factor(levels = c(habitats[i], "Other"))
-          assign(paste0(habitats[i]), train2)
-          
-          print(paste0(habitats[i]))
-        }
-        
-        habitat_classification <- function(df_habitat, algo) {
-          u <- unique(df_habitat[, 1])
-          u <- u[u != "Other"]
-          t <- trainControl(
-            method = "repeatedcv",
-            number = 10,
-            index = createFolds(df_habitat[, 1], 10, returnTrain = T),
-            repeats = 10,
-            savePredictions = "final",
-            classProbs = TRUE,
-            summaryFunction = twoClassSummary,
-            allowParallel = F,
-            sampling = "down"
-          )
-          ensemble <- caretList(reformulate(termlabels = colnames(train)[-1], response = colnames(train)[1]),
-                                data = df_habitat,
-                                trControl = t,
-                                methodList = algo,
-                                continue_on_fail = T,
-                                metric = "ROC",
-                                verbose = T
-          )
-          assign(paste0(u, "_", algo[1]), ensemble)
-        }
-        
-        # Run Function:
-        for (i in 1:length(habitats)) {
-          assign(paste0(habitats[i], "_result"), habitat_classification(get(habitats[i]), algo))
-          print(paste0(habitats[i], " one-vs-all ended!"))
-        }
-        
-        ensembles <- paste0(habitats, "_result")
-        
-        result <- test
-        
-        for (j in 1:length(ensembles)) {
-          print(j)
-          en <- get(ensembles[j])
-          
-          values_roc <- NA
-          for (i in 1:length(algo)) {
-            v <- en[[i]]$results$ROC[best(en[[i]]$results, "ROC", maximize = T)]
-            if (v > 0.5) {
-              assign(paste0("roc_", algo[i]), v)
-              values_roc[i] <- v
-            } else {
-              assign(paste0("roc_", algo[i]), 0)
-              values_roc[i] <- 0
-            }
-          }
-          
-          sum_roc <- sum(values_roc)
-          model_preds <- lapply(en, predict, newdata = test, type = "prob")
-          df2 <- sapply(model_preds, "[", habitats[j])
-          df2 <- Map("*", df2, values_roc)
-          df2 <- as.data.frame(df2)
-          df2 <- rowSums(df2) / sum_roc
-          result <- cbind(result, df2)
-        }
-        
-        colnames(result) <- c(colnames(test), habitats)
-        
-        final_prediction <- colnames(result[, -(1:ncol(test))])[apply(result[, -(1:ncol(test))], 1, which.max)]
-        habitat_probs <- NA
-        for (i in 1:nrow(result)) {
-          habitat_probs[i] <- result[i, colnames(result) == result[, 1][i]]
-        }
-        result <- cbind(result, final_prediction, habitat_probs)
-        return(result)
+      
+      colnames(result) <- c(colnames(test), habitats)
+      
+      final_prediction <- colnames(result[, -(1:ncol(test))])[apply(result[, -(1:ncol(test))], 1, which.max)]
+      habitat_probs <- NA
+      for (i in 1:nrow(result)) {
+        habitat_probs[i] <- result[i, colnames(result) == result[, 1][i]]
       }
-      result_multiclass <- multiclass(train, test, algo)
-      result_one_vs_all <- one_vs_all(train, test, algo)
-      #### Comparing Methods ####
-      mc.roc <- multiclass.roc(result_multiclass[, 1], result_multiclass$habitat_probs)
-      oa.roc <- multiclass.roc(result_one_vs_all[, 1], result_one_vs_all$habitat_probs)
-      result <- list("Multiclass" = as.numeric(mc.roc$auc), "One.vs.all" = as.numeric(oa.roc$auc))
+      result <- cbind(result, final_prediction, habitat_probs)
       return(result)
     }
+    result_multiclass <- multiclass(train, test, algo)
+    result_one_vs_all <- one_vs_all(train, test, algo)
+    #### Comparing Methods ####
+    mc.roc <- multiclass.roc(result_multiclass[, 1], result_multiclass$habitat_probs)
+    oa.roc <- multiclass.roc(result_one_vs_all[, 1], result_one_vs_all$habitat_probs)
+    result <- list("Multiclass" = as.numeric(mc.roc$auc), "One.vs.all" = as.numeric(oa.roc$auc))
+    return(result)
+  }
   result_framework <- replicate(n, classification(df))
   df_new <- data.frame(
     multiclass = unlist(result_framework[1, ]),
@@ -197,6 +236,7 @@ First_step <- function(df, n) {
   mean_multiclass <- mean(df_new$multiclass)
   mean_one_vs_all <- mean(df_new$one_vs_all)
   selected_framework <- ifelse(mean_multiclass > mean_one_vs_all, "multiclass", "one_vs_all")
+  
   return(list(
     DataFrame_TTest = df_ttest,
     mean_multiclass_Fist_step = mean_multiclass,
@@ -205,13 +245,9 @@ First_step <- function(df, n) {
     Selected_Framework = selected_framework
   ))
 }
-set.seed(1)
-s1 <- First_step(df, n)
-print(paste0("Selected Framework: ", s1$Selected_Framework, "."))
-saveRDS(s1, "s1_GCF.rds")
 
-# Second Step: Selecting Algorithms ####
-Second_step <- function(Selected_Framework, algo_2nd_step, n) {
+# Second Step: Algorithms Selection  ####
+algorithms_selection  <- function(Selected_Framework, algo_2nd_step, n) {
   if (Selected_Framework == "multiclass") {
     paste0("multiclass")
     multiclass <- function(algo_2nd_step, n) {
@@ -348,15 +384,10 @@ Second_step <- function(Selected_Framework, algo_2nd_step, n) {
     TUK_Second_step = tuk
   ))
 }
-set.seed(1)
-s2 <- Second_step(s1$Selected_Framework, algo_2nd_step, n)
-print(paste0("Selected Algorithms: ", s2$Result_Second_step$Algorithm[1], ", ",
-             s2$Result_Second_step$Algorithm[2], ", ",
-             s2$Result_Second_step$Algorithm[3], "."))
-saveRDS(s2,"s2_GCF.rds")
+
 
 # Third Step: Instance Selection ####
-Third_step <- function(df, Selected_Framework, algo, n_clust, n_clust2, n) {
+Instance_selection <- function(df, Selected_Framework, algo, n_clust, n_clust2, n) {
   instance_selection <- function(df, algo, n_clust, n_clust2) {
     nr <- createDataPartition(df[, 1], p = 0.9, list = FALSE)
     train <- df[nr, ]
@@ -675,6 +706,7 @@ Third_step <- function(df, Selected_Framework, algo, n_clust, n_clust2, n) {
     geom_boxplot() +
     labs(x = "Method") +
     theme(legend.position = "none")
+  
   return(list(
     Result_Third_step = Result_Third_step,
     AOV = result_aov,
@@ -684,83 +716,12 @@ Third_step <- function(df, Selected_Framework, algo, n_clust, n_clust2, n) {
     AUC_plot = auc_plot
   ))
 }
-set.seed(1)
-s3 <- Third_step(df,Selected_Framework = s1$Selected_Framework, algo = s2$Algo_selected_Second_step, n_clust, n_clust2 = n_clust/2, n)
-print(paste0("Instance Selection Selected: ", s3$Result_Third_step$IS[1], "."))
-saveRDS(s3,"s3_GCF.rds")
 
 # Fourth Step: Algorithms Tuning ####
-set.seed(1)
-nr <- createDataPartition(df[, 1], p = 0.9, list = FALSE)
-train <- df[nr, ]
-test <- df[-nr, ]
-ensemble <- caretList(reformulate(termlabels = colnames(train)[-1], response = colnames(train)[1]),
-                      data = train,
-                      trControl = trainControl(
-                        method = "repeatedcv",
-                        number = 10,
-                        index = createFolds(train[, 1], 10, returnTrain = T),
-                        repeats = 10,
-                        savePredictions = "final",
-                        classProbs = TRUE,
-                        summaryFunction = multiClassSummary,
-                        allowParallel = F,
-                        sampling = "up",
-                        returnResamp = "final",
-                        selectionFunction = "best"
-                      ),
-                      tuneList = list(
-                        cforest = caretModelSpec(
-                          method = "cforest",
-                          tuneGrid = expand.grid(mtry = c(1, 2, 3))
-                        ),
-                        ranger = caretModelSpec(
-                          method = "ranger",
-                          tuneGrid = expand.grid(
-                            mtry = c(1, 2, 3),
-                            splitrule = c("extratrees", "gini"),
-                            min.node.size = seq(1, 100, 1)
-                          )
-                        ),
-                        LogitBoost = caretModelSpec(
-                          method = "LogitBoost",
-                          tuneGrid = expand.grid(nIter = seq(1, 200, 1))
-                        )
-                      ),
-                      continue_on_fail = F,
-                      metric = "AUC"
-)
-plot(ensemble$cforest)
-plot(ensemble$ranger)
-plot(ensemble$LogitBoost)
-
-# Fifth Step: Putting results togheter ####
-habitats_classification <- function(df) {
-  ##### Data Building: ####
+Algorithms_tuning <- function(df) {
   nr <- createDataPartition(df[, 1], p = 0.9, list = FALSE)
   train <- df[nr, ]
   test <- df[-nr, ]
-  # train_IS1: uses 100 clusters centroides ####
-  if(framework_result$Third_step$Result_Third_step$IS[1] == "IS1"){
-    print(paste0("Train IS1 Started."))
-    for (i in 1:length(habitats)) {
-      x <- train[train[, 1] == habitats[i], -1]
-      x <- kmeans(x, n_clust)
-      v <- data.frame(
-        vegetation.type = as.factor(rep(paste(habitats[i]), n_clust)),
-        x$centers
-      )
-      if (i == 1) {
-        train_IS1 <- v
-      } else {
-        train_IS1 <- rbind(train_IS1, v)
-      }
-    }
-    train <- train_IS1
-  }
-
-  ##### Run models ####
-  print(paste0("Runing multiclass models..."))
   ensemble <- caretList(reformulate(termlabels = colnames(train)[-1], response = colnames(train)[1]),
                         data = train,
                         trControl = trainControl(
@@ -779,60 +740,251 @@ habitats_classification <- function(df) {
                         tuneList = list(
                           cforest = caretModelSpec(
                             method = "cforest",
-                            tuneGrid = expand.grid(mtry = 1)
+                            tuneGrid = expand.grid(mtry = c(1, 2, 3))
                           ),
                           ranger = caretModelSpec(
                             method = "ranger",
                             tuneGrid = expand.grid(
-                              mtry = 1,
-                              splitrule = c("gini"),
-                              min.node.size = seq(40, 100, 1)
+                              mtry = c(1, 2, 3),
+                              splitrule = c("extratrees", "gini"),
+                              min.node.size = seq(1, 100, 1)
                             )
                           ),
                           LogitBoost = caretModelSpec(
                             method = "LogitBoost",
-                            tuneGrid = expand.grid(nIter = seq(50, 100, 1))
+                            tuneGrid = expand.grid(nIter = seq(1, 200, 1))
                           )
                         ),
                         continue_on_fail = F,
                         metric = "AUC"
   )
   
-  print(paste0("Calculating AUCs..."))
-  values_auc <- NA
-  algo <- c("cforest", "ranger", "LogitBoost")
-  for (i in 1:length(algo)) {
-    v <- ensemble[[i]]$results$AUC[best(ensemble[[i]]$results, "AUC", maximize = T)]
-    assign(paste0("auc_", algo[i]), v)
-    values_auc[i] <- v
-  }
-  names(values_auc) <- algo
-  
-  print(paste0("Making predictions..."))
-  best_model <- ensemble[[which.max(values_auc)]]
-  model_preds <- predict(best_model, newdata = test, type = "prob")
-  pred_auc <- multiclass.roc(as.numeric(as.factor(test[,1])), model_preds)
-  
-  print(paste0("Done!"))
   return(list(
-    AUCs = pred_auc$auc,
-    Best_Model = best_model,
-    Test.Set = test,
-    Train.Set = train
+    cforest = ensemble$cforest,
+    ranger = ensemble$ranger,
+    LogitBoost = ensemble$LogitBoost
   ))
 }
-set.seed(1)
-result <- replicate(n, habitats_classification(df))
-saveRDS(result, "result_final.rds")
 
-# Extracting Best Model:
-aucs <- NA
-for (i in 1:100) {
-  aucs[i] <- as.numeric(result[, i][1])
+# Fifth Step: Habitats Classification (Putting results together) ####
+Habitats_classification <- function(df, Framework_Result, n) {
+  one_execution_habitats_classification <- function(df, Framework_Result){
+    ##### Data Building: ####
+    nr <- createDataPartition(df[, 1], p = 0.9, list = FALSE)
+    train <- df[nr, ]
+    test <- df[-nr, ]
+    # train_IS1: uses 100 clusters centroides ####
+    if(Framework_Result$Result_Third_step$IS[1] == "IS1"){
+      print(paste0("Train IS1 Started."))
+      for (i in 1:length(habitats)) {
+        x <- train[train[, 1] == habitats[i], -1]
+        x <- kmeans(x, n_clust)
+        v <- data.frame(
+          vegetation.type = as.factor(rep(paste(habitats[i]), n_clust)),
+          x$centers
+        )
+        if (i == 1) {
+          train_IS1 <- v
+        } else {
+          train_IS1 <- rbind(train_IS1, v)
+        }
+      }
+      train <- train_IS1
+    }
+    
+    ##### Run models ####
+    print(paste0("Runing multiclass models..."))
+    ensemble <- caretList(reformulate(termlabels = colnames(train)[-1], response = colnames(train)[1]),
+                          data = train,
+                          trControl = trainControl(
+                            method = "repeatedcv",
+                            number = 10,
+                            index = createFolds(train[, 1], 10, returnTrain = T),
+                            repeats = 10,
+                            savePredictions = "final",
+                            classProbs = TRUE,
+                            summaryFunction = multiClassSummary,
+                            allowParallel = F,
+                            sampling = "up",
+                            returnResamp = "final",
+                            selectionFunction = "best"
+                          ),
+                          tuneList = list(
+                            cforest = caretModelSpec(
+                              method = "cforest",
+                              tuneGrid = expand.grid(mtry = 1)
+                            ),
+                            ranger = caretModelSpec(
+                              method = "ranger",
+                              tuneGrid = expand.grid(
+                                mtry = 1,
+                                splitrule = c("gini"),
+                                min.node.size = seq(40, 100, 1)
+                              )
+                            ),
+                            LogitBoost = caretModelSpec(
+                              method = "LogitBoost",
+                              tuneGrid = expand.grid(nIter = seq(50, 100, 1))
+                            )
+                          ),
+                          continue_on_fail = F,
+                          metric = "AUC"
+    )
+    
+    print(paste0("Calculating AUCs..."))
+    values_auc <- NA
+    algo <- c("cforest", "ranger", "LogitBoost")
+    for (i in 1:length(algo)) {
+      v <- ensemble[[i]]$results$AUC[best(ensemble[[i]]$results, "AUC", maximize = T)]
+      assign(paste0("auc_", algo[i]), v)
+      values_auc[i] <- v
+    }
+    names(values_auc) <- algo
+    
+    print(paste0("Making predictions..."))
+    best_model <- ensemble[[which.max(values_auc)]]
+    model_preds <- predict(best_model, newdata = test, type = "prob")
+    pred_auc <- multiclass.roc(as.factor(test[,1]), model_preds)
+    
+    print(paste0("Done!"))
+    return(list(
+      AUCs = pred_auc$auc,
+      Best_Model = best_model,
+      Test.Set = test,
+      Train.Set = train
+    ))
+  }
+  
+  results <- replicate(n, one_execution_habitats_classification(df, Framework_Result = Framework_Result))
+  
+  # Extracting Best Model:
+  aucs <- NA
+  for (i in 1:n) {
+    aucs[i] <- as.numeric(results[, i][1])
+  }
+  best_result <- results[, which(aucs == max(aucs))]
+  
+  return(list(
+    results = results,
+    Best_Result = best_result
+  ))
 }
-result_best <- result[, which(aucs == max(aucs))]
-saveRDS(result_best, "result_best_final.rds")
-result_best$Best_Model
+
+
+# Running first step ####
+Running_first_step <- function(df, n){
+  First_step_result <- NULL
+  if (!file.exists(here("data/computed/First_step_result_GCF.rds"))){
+    set.seed(1)
+    First_step_result <- framework_selection(df, n)
+    saveRDS(First_step_result, here("data/computed/First_step_result_GCF.rds"))
+  }
+  else {
+    warning(paste0("Loading ", here("data/computed/First_step_result_GCF.rds"), "."))
+    First_step_result <- readRDS(here("data/computed/First_step_result_GCF.rds"))
+  }
+  print(paste0("Selected Framework: ", First_step_result$Selected_Framework, "."))
+  print(ggplot(First_step_result$DataFrame_TTest, aes(AUC, fill=method)) + geom_density(alpha = 0.4))
+  return(First_step_result)
+}
+
+# Running second step ####
+Running_second_step <- function(s1, algo_2nd_step, n){
+  Second_step_result <- NULL
+  if (!file.exists(here("data/computed/Second_step_result_GCF.rds"))){
+    set.seed(1)
+    Second_step_result <- algorithms_selection(s1$Selected_Framework, algo_2nd_step, n)
+    saveRDS(Second_step_result, here("data/computed/Second_step_result_GCF.rds"))
+  }
+  else {
+    warning(paste0("Loading ", here("data/computed/Second_step_result_GCF.rds"), "."))
+    Second_step_result <- readRDS(here("data/computed/Second_step_result_GCF.rds"))
+  }
+  print(paste0("Selected Algorithms: ", 
+               Second_step_result$Result_Second_step$Algorithm[1], ", ",
+               Second_step_result$Result_Second_step$Algorithm[2], ", ",
+               Second_step_result$Result_Second_step$Algorithm[3], "."))
+  
+  LogitBoost_results <- Second_step_result$Result_Second_step %>% filter(Mean == max(Mean))
+  
+  Second_step_result$LogitBoost_mean_auc <- LogitBoost_results$Mean
+  Second_step_result$LogitBoost_max_auc <- LogitBoost_results$Max
+  Second_step_result$LogitBoost_sum_auc <- LogitBoost_results$Max + LogitBoost_results$Mean
+  
+  
+  return (Second_step_result)
+}
+
+# Running third step  ####
+Running_third_step <- function(df, s1, s2, nclust, n_clust2 = n_clust/2, n){
+  Third_step_result <- NULL
+  if (!file.exists(here("data/computed/Third_step_result_GCF.rds"))){
+    set.seed(1)
+    Third_step_result <- Instance_selection(df, Selected_Framework = s1$Selected_Framework, algo = s2$Algo_selected_Second_step, n_clust, n_clust2 = n_clust/2, n)
+    saveRDS(Third_step_result, here("data/computed/Third_step_result_GCF.rds"))
+  }
+  else {
+    warning(paste0("Loading ", here("data/computed/Third_step_result_GCF.rds"), "."))
+    Third_step_result <- readRDS(here("data/computed/Third_step_result_GCF.rds"))
+  }
+  print(paste0("Instance Selection Selected: ", Third_step_result$Result_Third_step$IS[1], "."))
+  print(Third_step_result$AUC_plot)
+  return(Third_step_result)
+}
+
+# Running fourth step
+Running_fourth_step <- function(df){
+  Fourth_step_result <- NULL
+  if (!file.exists(here("data/computed/Fourth_step_result_GCF.rds"))){
+    set.seed(1)
+    Fourth_step_result <- Algorithms_tuning(df)
+    saveRDS(Fourth_step_result, here("data/computed/Fourth_step_result_GCF.rds"))
+  }
+  else {
+    warning(paste0("Loading ", here("data/computed/Fourth_step_result_GCF.rds"), "."))
+    Fourth_step_result <- readRDS(here("data/computed/Fourth_step_result_GCF.rds"))
+  }
+  
+  print(ggplot(Fourth_step_result$cforest))
+  print(ggplot(Fourth_step_result$ranger))
+  print(ggplot(Fourth_step_result$LogitBoost))
+  
+  return(Fourth_step_result)
+}
+
+# Running fifth Step
+Running_fifth_step <- function(df, s3, n){
+  Fifth_step_result <- NULL
+  if (!file.exists(here("data/computed/Fifth_step_result_GCF.rds"))){
+    set.seed(1)
+    Fifth_step_result <- Habitats_classification(df, s3, n)
+    saveRDS(Fifth_step_result, here("data/computed/Fifth_step_result_GCF.rds"))
+  }
+  else {
+    warning(paste0("Loading ", here("data/computed/Fifth_step_result_GCF.rds"), "."))
+    Fifth_step_result <- readRDS(here("data/computed/Fifth_step_result_GCF.rds"))
+  }
+  
+  print(Fifth_step_result$Best_Result$Best_Model)
+  return(Fifth_step_result)
+}
+
+
+
+# Running script in batch mode
+if (is.null(sys.calls())){
+  # Checking data
+  load_database()
+  head(df)
+  summary(df)
+  
+  # Running steps
+  s1 <- Running_first_step(df, n)
+  s2 <- Running_second_step(s1, algo_2nd_step, n)
+  s3 <- Running_third_step(df, s1, s2, nclust, n_clust/2, n)
+  s4 <- Running_fourth_step(df)
+  s5 <- Running_fifth_step(df, s3, n)
+}
 
 
 ################################################ End of Script ################################################
