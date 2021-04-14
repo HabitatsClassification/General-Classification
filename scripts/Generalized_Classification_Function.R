@@ -26,7 +26,8 @@ load_lib <- function(){
     "VGAM",
     "klaR",
     "naivebayes",
-    "DT"
+    "DT",
+    "fs"
   )
   
   # Install packages not yet installed
@@ -60,9 +61,12 @@ algo_2nd_step <- c(
 )
 n_clust <- 100
 n <- 100
-n <- 2
 NeoTropTree_filename <- here("./data/raw/NTT_habitats_classification.csv")
 df <- NULL
+
+if (!dir_exists(here("./data/computed"))){
+  dir_create(here("./data/computed"))
+}
 
 
 # Load NeoTropTree database ####
@@ -767,107 +771,109 @@ Algorithms_tuning <- function(df) {
 }
 
 # Fifth Step: Habitats Classification (Putting results together) ####
-Habitats_classification <- function(df, Framework_Result, n) {
-  one_execution_habitats_classification <- function(df, Framework_Result){
-    ##### Data Building: ####
-    nr <- createDataPartition(df[, 1], p = 0.9, list = FALSE)
-    train <- df[nr, ]
-    test <- df[-nr, ]
-    # train_IS1: uses 100 clusters centroides ####
-    if(Framework_Result$Result_Third_step$IS[1] == "IS1"){
-      print(paste0("Train IS1 Started."))
-      for (i in 1:length(habitats)) {
-        x <- train[train[, 1] == habitats[i], -1]
-        x <- kmeans(x, n_clust)
-        v <- data.frame(
-          vegetation.type = as.factor(rep(paste(habitats[i]), n_clust)),
-          x$centers
-        )
-        if (i == 1) {
-          train_IS1 <- v
-        } else {
-          train_IS1 <- rbind(train_IS1, v)
+Habitats_classification <- function(df, IS_result, n) {
+    AUCs       <- NULL 
+    Best_Model <- NULL
+    Test.Set   <- NULL
+    Train.Set  <- NULL 
+    for (j in 1:n){
+        ##### Data Building: ####
+        nr <- createDataPartition(df[, 1], p = 0.9, list = FALSE)
+        train <- df[nr, ]
+        test <- df[-nr, ]
+        habitats <- levels(train[,1])
+        
+        # train_IS1: uses 100 clusters centroides ####
+        if(IS_result$Result_Third_step$IS[1] == "IS1"){
+            print(paste0("Train IS1 Started."))
+            for (i in 1:length(habitats)) {
+                x <- train[train[, 1] == habitats[i], -1]
+                x <- kmeans(x, n_clust)
+                v <- data.frame(
+                        vegetation.type = as.factor(rep(paste(habitats[i]), n_clust)),
+                        x$centers)
+                if (i == 1) {
+                    train_IS1 <- v
+                } else {
+                    train_IS1 <- rbind(train_IS1, v)
+                }
+            }
+            train <- train_IS1
         }
-      }
-      train <- train_IS1
+        
+        ##### Run models ####
+        print(paste0("Runing multiclass models..."))
+        ensemble <- caretList(reformulate(termlabels = colnames(train)[-1], response = colnames(train)[1]),
+                              data = train,
+                              trControl = trainControl(
+                                  method = "repeatedcv",
+                                  number = 10,
+                                  index = createFolds(train[, 1], 10, returnTrain = T),
+                                  repeats = 10,
+                                  savePredictions = "final",
+                                  classProbs = TRUE,
+                                  summaryFunction = multiClassSummary,
+                                  allowParallel = F,
+                                  sampling = "up",
+                                  returnResamp = "final",
+                                  selectionFunction = "best"
+                              ),
+                              tuneList = list(
+                                  cforest = caretModelSpec(
+                                      method = "cforest",
+                                      tuneGrid = expand.grid(mtry = 1)
+                                  ),
+                                  ranger = caretModelSpec(
+                                      method = "ranger",
+                                      tuneGrid = expand.grid(
+                                          mtry = 1,
+                                          splitrule = c("gini"),
+                                          min.node.size = seq(40, 100, 1)
+                                      )
+                                  ),
+                                  LogitBoost = caretModelSpec(
+                                      method = "LogitBoost",
+                                      tuneGrid = expand.grid(nIter = seq(50, 100, 1))
+                                  )
+                              ),
+                              continue_on_fail = F,
+                              metric = "AUC"
+        )
+        print(paste0("Calculating AUCs..."))
+        values_auc <- NA
+        algo <- c("cforest", "ranger", "LogitBoost")
+        for (i in 1:length(algo)) {
+            v <- ensemble[[i]]$results$AUC[best(ensemble[[i]]$results, "AUC", maximize = T)]
+            assign(paste0("auc_", algo[i]), v)
+            values_auc[i] <- v
+        }
+        names(values_auc) <- algo
+        print(paste0("Making predictions..."))
+        best_model <- ensemble[[which.max(values_auc)]]
+        model_preds <- predict(best_model, newdata = test, type = "prob")
+        pred_auc <- multiclass.roc(as.factor(test[,1]), model_preds)
+        print(paste0("Done!"))
+        
+        if ( j == 1 ) {
+            print(paste0("AUC ", j, " = ",pred_auc$auc))
+            results <- list(
+                AUCs  = as.numeric(pred_auc$auc),
+                Best_Model = best_model,
+                Test.Set   =  test,
+                Train.Set  =  train)
+        } else {
+            if( as.numeric(pred_auc$auc) > max(results$AUCs)){
+                     print(paste0("New best AUC (", j, ") = ",pred_auc$auc))
+                     results$AUCs  <-  c(results$AUCs, as.numeric(pred_auc$auc))
+                     results$Best_Model <-  best_model
+                     results$Test.Set   <-  test
+                     results$Train.Set  <-  train
+                 } else { 
+                   results$AUCs  <-  c(results$AUCs, pred_auc$auc)
+                 }
+        }
     }
-    
-    ##### Run models ####
-    print(paste0("Runing multiclass models..."))
-    ensemble <- caretList(reformulate(termlabels = colnames(train)[-1], response = colnames(train)[1]),
-                          data = train,
-                          trControl = trainControl(
-                            method = "repeatedcv",
-                            number = 10,
-                            index = createFolds(train[, 1], 10, returnTrain = T),
-                            repeats = 10,
-                            savePredictions = "final",
-                            classProbs = TRUE,
-                            summaryFunction = multiClassSummary,
-                            allowParallel = F,
-                            sampling = "up",
-                            returnResamp = "final",
-                            selectionFunction = "best"
-                          ),
-                          tuneList = list(
-                            cforest = caretModelSpec(
-                              method = "cforest",
-                              tuneGrid = expand.grid(mtry = 1)
-                            ),
-                            ranger = caretModelSpec(
-                              method = "ranger",
-                              tuneGrid = expand.grid(
-                                mtry = 1,
-                                splitrule = c("gini"),
-                                min.node.size = seq(40, 100, 1)
-                              )
-                            ),
-                            LogitBoost = caretModelSpec(
-                              method = "LogitBoost",
-                              tuneGrid = expand.grid(nIter = seq(50, 100, 1))
-                            )
-                          ),
-                          continue_on_fail = F,
-                          metric = "AUC"
-    )
-    
-    print(paste0("Calculating AUCs..."))
-    values_auc <- NA
-    algo <- c("cforest", "ranger", "LogitBoost")
-    for (i in 1:length(algo)) {
-      v <- ensemble[[i]]$results$AUC[best(ensemble[[i]]$results, "AUC", maximize = T)]
-      assign(paste0("auc_", algo[i]), v)
-      values_auc[i] <- v
-    }
-    names(values_auc) <- algo
-    
-    print(paste0("Making predictions..."))
-    best_model <- ensemble[[which.max(values_auc)]]
-    model_preds <- predict(best_model, newdata = test, type = "prob")
-    pred_auc <- multiclass.roc(as.factor(test[,1]), model_preds)
-    
-    print(paste0("Done!"))
-    return(list(
-      AUCs = pred_auc$auc,
-      Best_Model = best_model,
-      Test.Set = test,
-      Train.Set = train
-    ))
-  }
-  
-  results <- replicate(n, one_execution_habitats_classification(df, Framework_Result = Framework_Result))
-  
-  # Extracting Best Model:
-  aucs <- NA
-  for (i in 1:n) {
-    aucs[i] <- as.numeric(results[, i][1])
-  }
-  best_result <- results[, which(aucs == max(aucs))]
-  
-  return(list(
-    results = results,
-    Best_Result = best_result
-  ))
+  return(results)
 }
 
 
