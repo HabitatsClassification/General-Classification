@@ -971,7 +971,7 @@ Running_fifth_step <- function(df, s3, n){
     Fifth_step_result <- readRDS(here("data/computed/Fifth_step_result_GCF.rds"))
   }
   
-  print(Fifth_step_result$Best_Result$Best_Model)
+  print(Fifth_step_result$Best_Model)
   return(Fifth_step_result)
 }
 
