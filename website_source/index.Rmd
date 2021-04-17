@@ -34,7 +34,7 @@ membros <- list(
         afiliacao = "Universidade Federal do Rio Grande do Sul",
         afiliacao_link = "http://www.ufrgs.br/",
         afiliacao_abrev = "Departamento de Botânica",
-        papel = "UFRGS"
+        papel = ""
     ),
     reginaldo <- list(
         nome ="Reginaldo Ré",
@@ -42,29 +42,29 @@ membros <- list(
         foto = "./assets/authors/reginaldo.jpg",
         tamanho_foto = "69%",
         afiliacao = "Universidade Tecnológica Federal do Paraná",
-        afiliacao_link = "http://dacom.cm.utfpr.edu.br/portal",
+        afiliacao_link = "http://www.utfpr.edu.br/cursos/coordenacoes/stricto-sensu/ppgcc-cm/area-academica/docentes/reginaldo-re",
         afiliacao_abrev = "Departamento de Computação",
-        papel = "UTFPR Campo Mourão"
+        papel = ""
     ),
     vincent <- list(
         nome ="Vincent Montade",
         email = "vincent.montade@gmail.com",
         foto = "./assets/authors/vincent.webp",
         tamanho_foto = "76%",
-        afiliacao = "Université de Montpellier, Montpellier, France",
-        afiliacao_link = "https://www.umontpellier.fr",
-        afiliacao_abrev = "UM",
-        papel = "Université de Montpellier"  
+        afiliacao = "Université de Montpellier",
+        afiliacao_link = "https://isem-evolution.fr/en/membre/montade/",
+        afiliacao_abrev = "The Institute of Evolutionary Science of Montpellier",
+        papel = ""  
     ),
     danilo <- list(
-        nome ="Danilo Neves",
-        email = "vincent.montade@gmail.com",
+        nome ="Danilo Rafael Mesquita Neves",
+        email = "dneves@icb.ufmg.br",
         foto = "./assets/authors/danilo.png",
-        tamanho_foto = "81%",
-        afiliacao = "Universidade Federal de Minas Gerais, Belo Horizonte, Brazil",
+        tamanho_foto = "80%",
+        afiliacao = "Universidade Federal de Minas Gerais",
         afiliacao_link = "https://ufmg.br/",
-        afiliacao_abrev = "UFMG",
-        papel = "Universidade Federal de Minas Gerais"  
+        afiliacao_abrev = "Instituto de Ciências Biológicas",
+        papel = ""  
     )
 )
 ```
